@@ -30,7 +30,7 @@ class MessageRouterTests {
     fun testAddRecipient() {
         router.copyEntries().count() shouldEqual 0
         val recipient = MessageRouterTestHelper()
-        router.add(recipient) { recipient.doNothing }
+        router.add(recipient, recipient.doNothing)
         router.copyEntries().count() shouldEqual 1
     }
 
@@ -47,7 +47,7 @@ class MessageRouterTests {
     fun testRemoveRecipient() {
         router.copyEntries().count() shouldEqual 0
         val recipient = MessageRouterTestHelper()
-        val entry = router.add(recipient) { recipient.doNothing }
+        val entry = router.add(recipient, recipient.doNothing )
         router.copyEntries().count() shouldEqual 1
         router.remove(entry)
         router.copyEntries().count() shouldEqual 0
@@ -86,8 +86,9 @@ class MessageRouterTests {
         // Creates a recipient in this scope.
         var recipient: MessageRouterTestHelper? = MessageRouterTestHelper()
 
-        router.add(recipient!!, recipient!!.test)
+        router.add(recipient!!, recipient!!.fail)
         val verifier = MemoryLeakVerifier(recipient)
+        router.remove(recipient)
         recipient = null
         verifier.assertGarbageCollected("Should b gone")
         router.send(42)
@@ -122,11 +123,6 @@ class MessageRouterTests {
 private class MessageRouterTestHelper {
 
     var hello = "hello"
-
-    val test = { r: MessageRouterTestHelper ->{ int: Int ->
-        hello = "Goodbye"
-        Assert.fail("Should not be called.")
-    } }
 
     val fail = { int: Int ->
         hello = "Goodbye"

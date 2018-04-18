@@ -27,45 +27,22 @@ class MessageRouter<T> {
     - returns: An opaque object that can be used to stop any further messages.
      */
     fun add(function: (T)->Unit) : MessageRouterEntry<T, Recipient> {
-        return add(this as Recipient){
-            function
-        }
-    }
-
-    /**
-    The given function will receive any messages for the life time of `object`.
-    Typically called like this:
-
-    recipients.add(self, self.dynamicType.handleMessage)
-
-    - parameter object: The object that owns the given function.
-    - parameter function: The function that will be called with any messages. Typically a function on `object`.
-    - returns: An opaque object that can be used to stop any further messages.
-     */
-    fun <R: Recipient> add(recipient: R, function: (R)->((T)->Unit)) : MessageRouterEntry<T, Recipient> {
-        val entry = MessageRouterEntry<T, R>(recipient, function) as MessageRouterEntry<T, Recipient>
-        synchronized(lock){
-            entries = entries.filter { it.getRecipient() != null }
-            entries += entry
-        }
-        return entry
+        return add(this as Recipient, function, true)
     }
 
     /**
     The given function will receive any messages for the life time of `object`.
     Ensures that only one callback will be saved for the provided `object` instance.
-    Typically called like this:
-
-    recipients.add(self, self.dynamicType.handleMessage)
+    Won't be called if there is already an entry for this recipient
 
     - parameter object: The object that owns the given function.
     - parameter function: The function that will be called with any messages. Typically a function on `object`.
     - returns: An opaque object that can be used to stop any further messages.
      */
-    fun <R: Recipient> addOnce(recipient: R, function: (R)->((T)->Unit)) : MessageRouterEntry<T, Recipient> {
+    fun <R: Recipient> add(recipient: R, function: (T)->Unit, allowMultipleEntries: Boolean = false) : MessageRouterEntry<T, Recipient> {
         val entry = MessageRouterEntry<T, R>(recipient, function) as MessageRouterEntry<T, Recipient>
         synchronized(lock){
-            entries = entries.filter { it.getRecipient() != null && it.getRecipient() != entry.getRecipient() }
+            entries = entries.filter { it.getRecipient() != null && (allowMultipleEntries || it.getRecipient() != entry.getRecipient()) }
             entries += entry
         }
         return entry
@@ -107,7 +84,7 @@ class MessageRouter<T> {
             for(entry in entries){
                 val recipient = entry.getRecipient()
                 if (recipient != null){
-                    handlers += entry.function(recipient)
+                    handlers += entry.function
                     newEntries.add(entry)
                 }
             }
@@ -142,7 +119,7 @@ class MessageRouter<T> {
 }
 
 /// Opaque object for tracking message recipient info.
-class MessageRouterEntry<T, in R :Recipient>(recipient: R, val function: (R) -> ((T) -> Unit)) {
+class MessageRouterEntry<T, in R :Recipient>(recipient: R, val function: (T) -> Unit) {
 
     private var recipient: WeakReference<R>? = null
 
