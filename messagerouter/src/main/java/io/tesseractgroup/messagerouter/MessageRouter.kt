@@ -26,9 +26,9 @@ class MessageRouter<T> {
     - parameter function: The function to receive any messages.
     - returns: An opaque object that can be used to stop any further messages.
      */
-    fun add(function: (T)->Unit) : MessageRouterEntry<T, Recipient> {
-        return add(this as Recipient, function, true)
-    }
+//    fun add(function: (T)->Unit) : MessageRouterEntry<T, Recipient> {
+//        return add(this as Recipient, function, true)
+//    }
 
     /**
     The given function will receive any messages for the life time of `object`.
