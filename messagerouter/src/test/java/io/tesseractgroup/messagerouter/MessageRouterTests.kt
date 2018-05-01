@@ -22,7 +22,7 @@ class MessageRouterTests {
     @Test
     fun testAddFunction() {
         router.copyEntries().count() shouldEqual 0
-        router.add { }
+        router.add(router) { }
         router.copyEntries().count() shouldEqual 1
     }
 
@@ -37,7 +37,7 @@ class MessageRouterTests {
     @Test
     fun testRemoveFunction() {
         router.copyEntries().count() shouldEqual 0
-        val entry = router.add { }
+        val entry = router.add(router) { }
         router.copyEntries().count() shouldEqual 1
         router.remove(entry)
         router.copyEntries().count() shouldEqual 0
@@ -65,7 +65,7 @@ class MessageRouterTests {
 
     @Test
     fun testSendAfterRemove() {
-        val entry = router.add { Assert.fail("Should not be called") }
+        val entry = router.add(router) { Assert.fail("Should not be called") }
         router.remove(entry)
         router.send(42)
     }
@@ -76,7 +76,7 @@ class MessageRouterTests {
     fun testSendTuple() {
         var count = 0
         val tupleRouter = MessageRouter<TupleMessage>()
-        tupleRouter.add { count += 1 }
+        tupleRouter.add(router) { count += 1 }
         tupleRouter.send(TupleMessage("Hello", 42))
         count shouldEqual 1
     }
@@ -103,8 +103,8 @@ class MessageRouterTests {
         // Adds n recipients.
         if (recipientCount > 0) {
             for (i in 1..recipientCount) {
-                router.add { n ->
-                    count += 1;
+                router.addMultipleCallbacks(router) { n ->
+                    count += 1
                     n shouldEqual message
                 }
             }

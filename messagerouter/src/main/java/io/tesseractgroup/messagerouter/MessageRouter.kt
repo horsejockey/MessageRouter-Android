@@ -1,5 +1,7 @@
 package io.tesseractgroup.messagerouter
 
+import io.tesseractgroup.purestatemachine.Agent
+import io.tesseractgroup.purestatemachine.AgentConcurrencyType
 import java.lang.ref.WeakReference
 
 /**
@@ -15,8 +17,7 @@ replacement to many types of delegate callbacks.
  */
 class MessageRouter<T> {
 
-    private var entries = listOf< MessageRouterEntry<T, Recipient> >()
-    private val lock = java.lang.Object()
+    private var agent = Agent(listOf< MessageRouterEntry<T, Recipient> >())
 
     /**
     Convenience function for add(_:_:). Simply takes a function that will
@@ -39,11 +40,18 @@ class MessageRouter<T> {
     - parameter function: The function that will be called with any messages. Typically a function on `object`.
     - returns: An opaque object that can be used to stop any further messages.
      */
-    fun <R: Recipient> add(recipient: R, function: (T)->Unit, allowMultipleEntries: Boolean = false) : MessageRouterEntry<T, Recipient> {
+    fun <R: Recipient> add(recipient: R, function: (T)->Unit) : MessageRouterEntry<T, Recipient> {
         val entry = MessageRouterEntry<T, R>(recipient, function) as MessageRouterEntry<T, Recipient>
-        synchronized(lock){
-            entries = entries.filter { it.getRecipient() != null && (allowMultipleEntries || it.getRecipient() != entry.getRecipient()) }
-            entries += entry
+        agent.update(AgentConcurrencyType.SYNC) { entries ->
+            return@update entries.filter { it.getRecipient() != null && it.getRecipient() != entry.getRecipient() }.plus(entry)
+        }
+        return entry
+    }
+
+    fun <R: Recipient> addMultipleCallbacks(recipient: R, function: (T)->Unit) : MessageRouterEntry<T, Recipient> {
+        val entry = MessageRouterEntry<T, R>(recipient, function) as MessageRouterEntry<T, Recipient>
+        agent.update(AgentConcurrencyType.SYNC) { entries ->
+            return@update entries.filter { it.getRecipient() != null }.plus(entry)
         }
         return entry
     }
@@ -54,8 +62,8 @@ class MessageRouter<T> {
     - parameter entry: The entry to remove.
      */
     fun remove(entry: MessageRouterEntry<T, Recipient>){
-        synchronized(lock){
-            entries = entries.filter { it.getRecipient() != null && it !== entry }
+        agent.update(AgentConcurrencyType.SYNC) { entries ->
+            return@update entries.filter { it.getRecipient() != null && it !== entry }
         }
     }
 
@@ -65,8 +73,8 @@ class MessageRouter<T> {
     - parameter recipient: The recipient to remove.
      */
     fun remove(recipient: Recipient){
-        synchronized(lock){
-            entries = entries.filter { it.getRecipient() != null && it.getRecipient() !== recipient }
+        agent.update(AgentConcurrencyType.SYNC) { entries ->
+            return@update entries.filter { it.getRecipient() != null && it.getRecipient() !== recipient }
         }
     }
 
@@ -76,11 +84,12 @@ class MessageRouter<T> {
     - parameter message: The message to send to the recipients.
      */
     fun send(message: T){
-        var handlers = listOf<(T)->Unit>()
 
-        synchronized(lock){
+        val handlers = agent.fetchAndUpdate { entries ->
+
             val newEntries = mutableListOf<MessageRouterEntry<T, Recipient>>()
 
+            var handlers = listOf<(T)->Unit>()
             for(entry in entries){
                 val recipient = entry.getRecipient()
                 if (recipient != null){
@@ -89,7 +98,7 @@ class MessageRouter<T> {
                 }
             }
 
-            entries = newEntries
+            return@fetchAndUpdate Pair(newEntries, handlers)
         }
 
         for(handler in handlers){
@@ -105,15 +114,7 @@ class MessageRouter<T> {
     - returns: A copy of the registered recipient entries.
      */
     fun copyEntries() : List< MessageRouterEntry<T, Recipient> > {
-        var copiedEntries = listOf< MessageRouterEntry<T, Recipient> >()
-
-        synchronized(lock) {
-            for (entry in entries) {
-                copiedEntries += entry
-            }
-        }
-
-        return entries
+        return agent.fetch { it }
     }
 
 }
