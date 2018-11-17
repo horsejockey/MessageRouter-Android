@@ -17,19 +17,8 @@ replacement to many types of delegate callbacks.
  */
 class MessageRouter<T> {
 
-    private var agent = Agent(listOf< MessageRouterEntry<T, Recipient> >())
+    private val agent = Agent(listOf< MessageRouterEntry<T, Recipient> >())
 
-    /**
-    Convenience function for add(_:_:). Simply takes a function that will
-    receive all messages for the life time of this instance, or until the
-    returned entry is removed.
-
-    - parameter function: The function to receive any messages.
-    - returns: An opaque object that can be used to stop any further messages.
-     */
-//    fun add(function: (T)->Unit) : MessageRouterEntry<T, Recipient> {
-//        return add(this as Recipient, function, true)
-//    }
 
     /**
     The given function will receive any messages for the life time of `object`.
@@ -78,6 +67,12 @@ class MessageRouter<T> {
         }
     }
 
+    fun clear(){
+        agent.update(AgentConcurrencyType.SYNC) { entries ->
+            return@update listOf< MessageRouterEntry<T, Recipient> >()
+        }
+    }
+
     /**
     Sends the given message to all the registered recipients.
 
@@ -105,7 +100,6 @@ class MessageRouter<T> {
             handler(message)
         }
     }
-
 
     /**
     Convenience method for getting a copy of the entries. This is intended only
