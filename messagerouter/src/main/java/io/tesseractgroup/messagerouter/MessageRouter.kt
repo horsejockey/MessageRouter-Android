@@ -2,6 +2,7 @@ package io.tesseractgroup.messagerouter
 
 import io.tesseractgroup.purestatemachine.Agent
 import io.tesseractgroup.purestatemachine.AgentConcurrencyType
+import io.tesseractgroup.purestatemachine.FetchAndUpdateResult
 import java.lang.ref.WeakReference
 
 /**
@@ -81,9 +82,7 @@ class MessageRouter<T> {
     fun send(message: T){
 
         val handlers = agent.fetchAndUpdate { entries ->
-
             val newEntries = mutableListOf<MessageRouterEntry<T, Recipient>>()
-
             var handlers = listOf<(T)->Unit>()
             for(entry in entries){
                 val recipient = entry.getRecipient()
@@ -92,8 +91,7 @@ class MessageRouter<T> {
                     newEntries.add(entry)
                 }
             }
-
-            return@fetchAndUpdate Pair(newEntries, handlers)
+            FetchAndUpdateResult(handlers, newEntries.toList())
         }
 
         for(handler in handlers){
